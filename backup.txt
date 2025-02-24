@@ -1,0 +1,144 @@
+这回这个估计用处不大
+=============================
+11月18日更新
+修正了restart setup的错误
+修正了一个GPT分区判断的错误
+修正了一个磁盘读取的错误
+修正了一个注册表检查的错误
+=============================
+11月15日更新
+在xiaohui的帮助下修正了若干个bug......特别是vm的兼容性上面
+如果有同学遇到vm里面启动不鸟的情况
+请重新下载
+=============================
+
+这回是ntldr..也就是windows vista以前版本的loader
+
+前段时间家里3奶机的光驱要浮云了
+我又不想到大奶机2奶机上去卸光驱
+正巧看到网上的u盘量产可以虚拟一个光驱出来
+于是买了个8G的u盘..
+结果等我量产完了一试
+3奶机能正常启动
+但是笔记本却启动不了
+网上google了一下发现是我的这个笔记本不能从usb-cdrom引导
+郁闷了好久
+郁闷过后于是就萌生了自己写一个osloader的想法
+这样就可以想加载什么就加载什么想怎么启动就怎么启动
+
+于是开始了解windows的这个ntldr
+一开始我以为windows的这个ntldr也是能windbg的
+结果才发现必须要是checked版的os而且只能com口
+checked版的os我倒是不少..连IA64的我完全没环境运行的都搞来了一个
+但是这个com口实在太慢..习惯了1394再来com..受不鸟
+而且而且,ntldr里面的boot debugger那完全就跟没有似的
+基本属于没法用...windbg不断报错报错.断点有时能设有时不能设.可以说很垃圾
+
+于是就有了现在这份代码
+先说说跟windows的ntldr有什么不同
+先说.windows有的.我没有的
+1.windows能从fat12,fat,fat32,ntfs,cdfs,udfs等的文件系统上加载.我的只能从ntfs的文件系统上加载
+2.windows能从网络加载.我的不能
+3.windows能从没int19的scsi硬盘上加载.我的不能(现在也没这种老古董不int19的了)
+
+接着是我有的.windows没有的
+1.完全能用的debugger,over com和over 1394,而over usb嘛.我没环境.所以就pass了
+2.更为丰富的加载方式..你可以用windows本身的方式(MBR)加载.也可以用2003里面的startrom.com或者startrom.n12(pxe)加载还能用grub当作一个linux kernel加载.还能pxelinux.0加载.能想到的我都实现了
+3.更为灵活的控制方式...这个嘛.windows那个就是完全不可控的.我的这个能传递命令行参数..那就大不一样了
+4.全兼容windows的版本.至于和kernel的兼容情况..我这里刚开始开发是用的checked xp sp2.后来换checked 2k3.sp2 所以这两个版本都是能兼容的..不过x64是不兼容的.恩对.windows的x86的版本也是能引导x64的kernel的
+
+刚开始的目的只是想能简单的引导一下我的笔记本
+不过后来这个方向就偏离的越来越远.到现在我已经忘记初衷了
+
+嗯..不错
+也许你已经知道了..在能下载到的nt4的代码包里面有一份几乎完整的ntldr的实现
+确实我的这个代码也大面积的copy了nt4的代码
+
+而windows xp,2k3跟nt4的比较起来实际上的变化其实也并不大
+只是多出很多来...比如nt4不支持休眠.nt4不支持debug.nt4不支持pae,nt4不支持serial console,nt4不支持ramdisk,nt4不支持xip
+然后nt4有的也做了不少的bug 修改以及功能加强
+
+那么跟nt4的已有的代码比较
+我的这份代码里面多出来的东西是从哪里来的呢?
+
+1.休眠.这部分可以google一下一个叫sandman(sandman.msuiche.net..大约是个日本人)的东西.他那里有hiberfil.sys的格式介绍.不过这格式本身等于是公开的
+全部数据结构的type你能在内核的pdb里面找到..而压缩算法能在微软的一个文档里面找到介绍和实现.文件格式本身是很简单的
+而休眠这个功能实现.我是ida的checked xp sp2的ntldr来的(我一直都以为休眠是acpi提供的那个什么resume from s4的功能.结果这功能是完全独立于硬件的.没acpi照样休眠)
+
+2.debug..xp,2k3的那个debug就别ida了...kd协议和数据结构前者能在2k的代码包里面能找到(2k里面有kd的代码也有kd64的代码还有windbg的代码还有windbg64的代码,几乎是全的)
+后者数据结构也是在内核的pdb里面..至于协议的变化.就不能相信2k代码里面的了..我是ida的vista的某个beta的efi版的bootmgr来的.为什么是某个beta的efi呢?因为efi的结构比bios简单.而beta版的代码没有使用"全局优化",release版本的代码全局优化以后那简直跟噩梦一样...我是没耐心去看经过全局优化以后的代码的
+
+3.pae.这个ida xp和2k3的就行了..本身不复杂就只是几个table设置.当然我还是推荐你ida一下vista的...因为xp和2k3的osloader只是工作在非pae的分页模式下.到最后了要转移执行到kernel的时候才去设置pae的那些table,设置完了接着就是移交控制权..而vista的不这样.vista的winload一开始就会打开pae.整个winload都是工作在pae环境下的.而且vista的这部分不管是pae的还是普通分页的代码是实现到一个lib里面的.所以即使vista的bootmgr不使用pae,这份pae的实现也是在bootmgr里面存在的..这样你能两方对比看普通分页跟pae有什么差异
+
+4.serial console这就简单到不能再简单了..只是一部分的escape sequence处理而已
+
+5.ramdisk..这个是指sdi的ramdisk不是wim的...sdi的我只是google到一个俄文的格式说明.不过这个东西本身就很简单.不压缩也不加密就是一个fat32的磁盘镜像
+
+6.xip这个几乎就是和ramdisk联系到一起的..不过我很好奇..x86平台的非ce版的谁会用xip?..osloader里面的xip很简单.就只是一个4MB page的large read
+
+7.然后就是我上面还提到的用非m$的比如grub,syslinux,pxelinux加载的部分.这个部分都是一些linux的东西.很简单的.一些特殊的结构让grub把我的这个ntldr识别成一个linux的kernel.然后grub会用加载linux kernel的协议方式(而不是通常的chainloader的方式)加载我的ntldr.其中最重要的就是能传递命令行参数..而命令行参数的最主要的作用就是在第一时间在快到不能再快的情况下初始化debugger...而windows的ntldr的debugger初始化太晚太晚代码都可以说执行了一大半了才初始化debugger..若干个东西都错过了.
+
+牛皮吹了这么多.
+其实我也想谈一谈这个具体的实现
+不过想来想去真不知道该怎么说
+osloader的功能很简单很单一....加载操作系统
+但是osloader也并不像是某某驱动一样简单.
+osloader的几个部分随便挑一个都能写一个长篇
+比如内存管理..虽然没有kernel那么复杂.但是麻雀虽小..(这个部分推荐看vista的..因为xp和2k3的这个显得还是有点弱智,比如heap能分配不能释放,pde也只分配不释放等等)
+又比如休眠..这个代码其实也不多..但是他跨度很大..涉及的东西多..都是一些内部内部内部做法
+再比如文件系统..虽然没有cc没有vm没有fsd没有fastio.但是一样有disk cache(nt4的代码里面是没有这个功能的)..
+就ntfs来说读是完整的(压缩的也能读).写只能写non-resident的attribute.但是他也不简单.(再次推荐vista.他的读写都是完整的)
+
+最后..还是挺推荐看看ntldr和bootmgr和winload的
+这几个里面的东西很多
+1.内存管理..虽然他没有share memory没有copy on write更没有prototype也没有demand-zero
+2.文件系统..这部分很有加载..没有cc没有vm没有fsd没有fastio没有irp.直接着眼文件系统他本身..你不用分神去处理异常不用去pin/unpin不用管oplock更不用acquire/release eresource
+3.这ntldr里面有个精简版的scsiport...这不用太多介绍了吧
+4.这里面有注册表的读取加载..理由同2..
+
+最后最后最后
+老规矩.....代码包里面
+source目录下面是代码...
+他下面有2个工程.一个是osloader.这个是运行在保护模式的主要的模块.用vc直接编译(虽然有不少恶心的inline asm).
+另一个工程是startup module,他运行在实模式下..他负责"加载执行"osloader.并为osloader提供一些bios的中断封装.这个工程的编译需要下载一个nasm.exe
+nasm是一个跨平台的汇编编译器..他就一个exe文件干净绿色.而且很简单.没有masm或者tasm那么复杂..你看看就知道了.asm源代码里面除了代码还是代码.没那么多乱七八糟的宏
+没办法..这个startup module是全汇编的...我实在不想去装个16位的c编译器.反正也不大..纯汇编也就纯汇编了.也不麻烦.短短两三千行的汇编代码还是挺容易维护的
+他的编译..我已经加到vc的工程里面的..你把nasm放到你的path里面直接就能在vc里面编译....多看看vc的工程配置...如果你遇到startup module的编译问题的话
+
+ida下面是checked xp sp2的ida 5.2的文件...相对我以前的ida文件
+这次这个估计会让你有点失望...
+ida里面并没太多东西.因为我逆向的结果都记录到的c++代码里面.而没有像以前一样放ida里面
+不过有c++源代码..ida你基本就可以无视
+
+还有一个tftpd的目录是我用来调试的
+里面有个绿色的tftpd的服务器端...(我只是用他的tftp功能..没有用dhcp.我的局域网上有专门的dhcp服务器)
+pxelinux.0这个是pxelinux的pxe文件
+startrom.n12这个windows 2003里面的startrom.他会加载osloader,exe..注意他需要的是一个pe格式的32位的osloader文件.但是你要rename成ntldr.不能直接用你的ntldr.你需要把前面的那段16位的startup代码给去掉.(另.不知道是我的bios的原因还是什么的.只要我pxe启动bios int13的返回结果就一定告诉我硬盘不支持LBA模式.但是我确实能用LBA模式去访问硬盘)
+
+pxelinux.cfg目录下面有个pxelinux的配置文件.很简单
+复制代码
+
+DEFAULT Windows
+TIMEOUT 50
+SERIAL 0 115200
+
+LABEL Windows
+    KERNEL NTLDR.krl
+    APPEND root=/dev/sda1 debugport=1394 channel=12 debugstop redirectport=com1 redirectbaudrate=115200 forcelba autoreboot
+
+ 
+
+倒数第二行就是kernel
+最后一行就是命令行...
+
+你要调试osloader.exe就直接windbg了
+要调试startup.那要么你用ice.要么就虚拟机..我用bochs调试..还行..就是那个硬盘镜像你得要有一个能在windows下面使用能虚拟带着mbr的整个硬盘的软件而不是filedisk这种只是虚拟一个分区的软件(打个广告..试试我写的开源的在这个论坛上能找到的那个虚拟磁盘)
+
+另外你能发现一个libcnt.lib的文件
+他是一个有一些能在kernel模式下使用的c运行库.比如string的函数.memory的函数.等等的
+我是用nt4里面的crt编译来的..所以没有_s的safe版...也没有atoi64这样的64位版
+本来是打算用2008的crt源代码编译一个_s版的..结果发现nt4已经有写好的make文件
+于是我偷了个懒..直接用nt4的代码编译了一份..
+
+更新了附件
+int13 ext的bug已经修正

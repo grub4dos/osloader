@@ -1,0 +1,41 @@
+DEFAULT menu.c32
+PROMPT 0
+NOESCAPE 0
+ALLOWOPTIONS 0
+TIMEOUT 90
+
+MENU TITLE PXE Boot
+
+LABEL Windows
+MENU LABEL Windows Server 2003 Checked(1st 1394)
+	KERNEL NTLDR.krl
+	APPEND root=/dev/sda1 debugport=1394 channel=12 debugstop autoreboot
+
+LABEL Windows
+MENU LABEL Windows Server 2003 Checked(2nd 1394)
+	KERNEL NTLDR.krl
+	APPEND root=/dev/sda2 debugport=1394 channel=12 debugstop autoreboot
+
+LABEL Windows
+MENU LABEL Windows Server 2003 Checked(1st COM)
+	KERNEL NTLDR.krl
+	APPEND root=/dev/sda1 debugport=com1 baudrate=115200 debugstop autoreboot
+
+LABEL Windows
+MENU LABEL Windows Server 2003 Checked(2nd COM)
+	KERNEL NTLDR.krl
+	APPEND root=/dev/sda1 debugport=com1 baudrate=115200 debugstop autoreboot
+
+LABEL Windows
+MENU LABEL Windows Server 2003(1st)
+	KERNEL NTLDR.krl
+	APPEND root=/dev/sda1 autoreboot
+
+LABEL Windows
+MENU LABEL Windows Server 2003(2nd)
+	KERNEL NTLDR.krl
+	APPEND root=/dev/sda2 autoreboot
+
+LABEL Local
+MENU LABEL Local Boot
+LOCALBOOT 0
